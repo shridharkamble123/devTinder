@@ -3,20 +3,50 @@ const dotenv = require('dotenv');
 dotenv.config();
 const connectToDb = require("./config/databaseConfig");
 const User = require("./models/user");
+const bcrypt = require("bcrypt")
 const app = exprees()
 
 
 app.use(exprees.json())
 
-//create user instance
+//Register user instance
 app.post('/signup',async (req,res)=>{
     try {
-        const userData = req.body
-        const user=new User(userData)
+
+        const {firstName,lastName,emailId,password} = req.body
+        //password Encryption
+        const passwordEncrypted=await bcrypt.hash(password,10)
+        console.log(passwordEncrypted);
+        const user=new User({
+            firstName,
+            lastName,
+            emailId,
+            password:passwordEncrypted
+        })
         await user.save()
         res.send("User added Successfully")
     } catch (error) {
+        console.log(error.message);
         res.status("400").send("Provide Valid Details"+error)
+    }
+})
+
+// Login User 
+
+app.post("/login",async(req,res)=>{
+    try {
+        const {emailId,password}=req.body
+        const isUserPresent=await User.findOne({emailId})
+        if(!isUserPresent) throw new Error("Invalid Credentials")
+
+        const passWordMatch = await bcrypt.compare(password,isUserPresent.password)
+        
+        if(!passWordMatch) throw new Error("Invalid Credentials")
+
+        res.status(200).send("Login SuccessFull")
+    } catch (error) {
+        console.log(error.message);
+        res.status(403).send("Invalid Credentials")
     }
 })
 
@@ -60,18 +90,27 @@ app.delete('/deleteUser',async (req,res)=>{
     }
 })
 
-app.patch('/updateUser',async (req,res)=>{
+app.patch('/updateUser/:userId',async (req,res)=>{
     try {
-        const userId = req.body.userId
+        const userId = req.params?.userId
         const data = req.body
-        const userToUpdated = await User.findByIdAndUpdate({_id:userId},data)
+       
+        const allowedToUpdate=["firstName","lastName","age","gender","about","skills"]
+        const isAllowed = Object.keys(data).every((key)=>allowedToUpdate.includes(key))
+        if(!isAllowed){
+            throw new Error("Some Fields are not allowed to Update")
+        }
+        const userToUpdated = await User.findByIdAndUpdate({_id:userId},data,{
+            returnDocument:"after",
+            runValidators:true
+        })
         if(!userToUpdated) {
             res.status(404).send("User not found")
         } else {
             res.send("User Updated successfully")
         }
     } catch (error) {
-        res.status(404).send("User not found")
+        res.status(404).send("Failed to Update "+error.message)
     }
 })
 connectToDb().then(()=>{
