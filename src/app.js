@@ -5,10 +5,11 @@ const connectToDb = require("./config/databaseConfig");
 const User = require("./models/user");
 const bcrypt = require("bcrypt")
 const app = exprees()
-
+const cookieParser=require("cookie-parser")
+const jwt=require("jsonwebtoken")
 
 app.use(exprees.json())
-
+app.use(cookieParser())
 //Register user instance
 app.post('/signup',async (req,res)=>{
     try {
@@ -43,12 +44,26 @@ app.post("/login",async(req,res)=>{
         
         if(!passWordMatch) throw new Error("Invalid Credentials")
 
+        const secretToken=await jwt.sign({userId:isUserPresent._id},"Devtinder@28081998")
+        console.log(secretToken,'token');
+        res.cookie("token",secretToken)
         res.status(200).send("Login SuccessFull")
     } catch (error) {
         console.log(error.message);
         res.status(403).send("Invalid Credentials")
     }
 })
+
+
+app.get("/profile",async(req,res)=>{
+    try {
+        
+        res.send(findUser)
+    } catch (error) {
+        res.status(401).send("User unauthorised",error.message)
+    }
+})
+
 
 //Get all feed i.e all user
 
